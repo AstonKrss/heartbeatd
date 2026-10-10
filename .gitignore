@@ -1,0 +1,9 @@
+# Build artifacts
+/build/
+/build-*/
+
+# Editor / OS
+*.o
+*.d
+*.swp
+.DS_Store

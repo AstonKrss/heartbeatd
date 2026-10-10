@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Unit tests
+        run: make test
+
+      # End-to-end smoke test: server + benchmark + admin queries.
+      - name: Smoke test
+        run: |
+          ./build/heartbeat_server --bind 127.0.0.1 --port 19000 \
+            --allow-source 127.0.0.1 --admin-socket /tmp/hb-ci.sock --quiet-events &
+          SRV=$!
+          sleep 1
+          ./build/heartbeat_bench --server 127.0.0.1 --port 19000 \
+            --hosts 200 --threads 2 --rate-pps 5000 --duration-sec 2
+          ./build/heartbeat_admin --socket /tmp/hb-ci.sock --stats | head -5
+          ./build/heartbeat_admin --socket /tmp/hb-ci.sock --list 3
+          ./build/heartbeat_admin --socket /tmp/hb-ci.sock --receivers
+          kill -TERM "$SRV"
+          wait "$SRV"
